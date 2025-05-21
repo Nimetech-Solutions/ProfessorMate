@@ -36,6 +36,11 @@ import WordPuzzleScreen3 from "./app/screens/beginner/WordPuzzleScreen3";
 import WordPuzzleScreen4 from "./app/screens/beginner/WordPuzzleScreen4";
 import WordPuzzleScreen5 from "./app/screens/beginner/WordPuzzleScreen5";
 import VerbsScreen from "./app/screens/beginner/VerbsScreen";
+import BasicLevelInfoScreen from "./app/screens/beginner/BasicLevelInfoScreen";
+import ModuleSelectionScreen from "./app/screens/beginner/ModuleSelectionScreen";
+import ModuleOneTopicsScreen from "./app/screens/beginner/ModuleOneTopicsScreen";
+import EssentialVocabularyScreen from "./app/screens/beginner/vocabulary/EssentialVocabularyScreen";
+import NumbersScreen from "./app/screens/beginner/vocabulary/NumbersScreen";
 import PronounsScreen from "./app/screens/basic/PronounsScreen";
 import Pronoun2 from "./app/screens/basic/Pronoun2";
 import TensesScreen from "./app/screens/basic/TensesScreen";
@@ -565,9 +570,11 @@ export default function App() {
           <Stack.Screen name="VerbsScreenZ" component={VerbsScreenZ} />
           <Stack.Screen name="ZPuzzleProgressScreen" component={ZPuzzleProgressScreen} />
           <Stack.Screen name="OverallProgressScreen" component={OverallProgressScreen} />
-
-
-          
+          <Stack.Screen name="BasicLevelInfoScreen" component={BasicLevelInfoScreen} />
+          <Stack.Screen name="ModuleSelectionScreen" component={ModuleSelectionScreen} />
+          <Stack.Screen name="ModuleOneTopicsScreen" component={ModuleOneTopicsScreen} />
+          <Stack.Screen name="EssentialVocabularyScreen" component={EssentialVocabularyScreen} />
+          <Stack.Screen name="NumbersScreen" component={NumbersScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </Provider>

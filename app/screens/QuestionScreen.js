@@ -8,12 +8,9 @@ export default function QuestionScreen({ navigation }) {
   const [animationValue] = useState(new Animated.Value(1)); // For scaling animation
 
   const options = [
-    "I'm new to English",
-    'I have basic knowledge',
-    'I know some common words',
-    'I can create conversation about various topics',
-    "I'm fluent in Writing",
-    "I'm fluent in Speaking",
+    "Basic Level",
+    "Intermediate Level",
+    "Advanced Level",
   ];
 
   const handlePressIn = () => {
@@ -35,17 +32,18 @@ export default function QuestionScreen({ navigation }) {
   };
 
   const handleContinue = () => {
-    // If "I have basic knowledge" is selected, navigate to PronounsScreen
-    if (selectedOption === 'I have basic knowledge') {
-      navigation.navigate('PronounsScreen');
+    if (selectedOption === "Basic Level") {
+      navigation.navigate('BasicLevelInfoScreen');
     } 
-    // Default navigation for other options
-    else if (selectedOption === "I'm new to English") {
-      navigation.navigate('BeginnersScreen');
+    else if (selectedOption === "Intermediate Level") {
+      navigation.navigate('PronounsScreen');
     }
-    // Add other conditional navigations here if needed
+    else if (selectedOption === "Advanced Level") {
+      navigation.navigate('Qs');
+    }
     else {
-      navigation.navigate('Qs'); // Default navigation
+      // Default navigation if somehow no option is selected
+      navigation.navigate('AlphabetScreen');
     }
   };
 

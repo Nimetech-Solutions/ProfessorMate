@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  SafeAreaView, Platform, StatusBar, ScrollView, Image, Dimensions 
+  SafeAreaView, Platform, StatusBar, ScrollView, Image, Dimensions, Alert
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,21 +28,107 @@ export default function APuzzleProgressScreen({ navigation }) {
     { id: 5, name: 'ANT', image: require('../../../assets/items/ant.png') },
   ];
 
-  // Load puzzle status from storage when component mounts
-  useEffect(() => {
-    const loadPuzzleStatus = async () => {
-      try {
-        const storedStatus = await AsyncStorage.getItem('aPuzzleStatus');
-        if (storedStatus) {
-          setPuzzleStatus(JSON.parse(storedStatus));
-        }
-      } catch (error) {
-        console.error('Failed to load puzzle status:', error);
+  // Load puzzle status from storage
+  const loadPuzzleStatus = async () => {
+    try {
+      const storedStatus = await AsyncStorage.getItem('aPuzzleStatus');
+      if (storedStatus) {
+        const parsedStatus = JSON.parse(storedStatus);
+        console.log('Loaded A puzzle status:', parsedStatus);
+        setPuzzleStatus(parsedStatus);
+      } else {
+        // If no stored status exists, save the default status
+        const defaultStatus = {
+          1: 'completed',
+          2: 'completed',
+          3: 'wrong',
+          4: 'skipped',
+          5: 'completed'
+        };
+        setPuzzleStatus(defaultStatus);
+        await savePuzzleStatus(defaultStatus);
       }
-    };
-    
+    } catch (error) {
+      console.error('Failed to load puzzle status:', error);
+    }
+  };
+
+  // Save puzzle status to AsyncStorage
+  const savePuzzleStatus = async (statusData) => {
+    try {
+      await AsyncStorage.setItem('aPuzzleStatus', JSON.stringify(statusData));
+      console.log('A puzzle status saved successfully:', statusData);
+    } catch (error) {
+      console.error('Failed to save puzzle status:', error);
+    }
+  };
+
+  // Load puzzle status on initial mount
+  useEffect(() => {
     loadPuzzleStatus();
   }, []);
+  
+  // Refresh data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('APuzzleProgressScreen is focused - reloading data');
+      loadPuzzleStatus();
+      return () => {
+        console.log('APuzzleProgressScreen is unfocused');
+      };
+    }, [])
+  );
+
+  // Function to update a puzzle's status (for demonstration)
+  const updatePuzzleStatus = async (puzzleId, newStatus) => {
+    try {
+      // Create a new status object with the updated status
+      const updatedStatus = {
+        ...puzzleStatus,
+        [puzzleId]: newStatus
+      };
+      
+      // Update the state
+      setPuzzleStatus(updatedStatus);
+      
+      // Save to AsyncStorage
+      await savePuzzleStatus(updatedStatus);
+      
+      // Show confirmation
+      Alert.alert(
+        "Status Updated",
+        `Puzzle ${puzzleId} status updated to ${newStatus}. Overall progress will be refreshed automatically.`,
+        [{ text: "OK" }]
+      );
+      
+      // Log the update for debugging
+      console.log(`Puzzle ${puzzleId} updated to ${newStatus}. AsyncStorage updated.`);
+    } catch (error) {
+      console.error('Failed to update puzzle status:', error);
+      Alert.alert(
+        "Update Failed",
+        "There was a problem saving your progress. Please try again.",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
+  // Long press handler to cycle through statuses (for testing)
+  const handleLongPress = (puzzleId) => {
+    const currentStatus = puzzleStatus[puzzleId];
+    let newStatus;
+    
+    // Cycle through statuses: completed -> wrong -> skipped -> completed
+    if (currentStatus === 'completed') {
+      newStatus = 'wrong';
+    } else if (currentStatus === 'wrong') {
+      newStatus = 'skipped';
+    } else {
+      newStatus = 'completed';
+    }
+    
+    updatePuzzleStatus(puzzleId, newStatus);
+  };
 
   // Calculate statistics
   const stats = {
@@ -175,10 +262,12 @@ export default function APuzzleProgressScreen({ navigation }) {
               <TouchableOpacity 
                 key={puzzle.id}
                 style={styles.puzzleCard}
-                onPress={() => navigation.navigate(`WordPuzzleScreen${puzzle.id}`, {
+                onPress={() => navigation.navigate('WordPuzzleScreen', {
+                  id: puzzle.id,
                   word: puzzle.name,
                   image: puzzle.image
                 })}
+                onLongPress={() => handleLongPress(puzzle.id)}
               >
                 <View style={styles.puzzleImageContainer}>
                   <Image source={puzzle.image} style={styles.puzzleImage} />

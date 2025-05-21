@@ -7,6 +7,7 @@ import {
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Progress from 'react-native-progress';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,89 +25,149 @@ export default function OverallProgressScreen({ navigation }) {
   // The alphabet array for iteration
   const alphabets = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-  useEffect(() => {
-    const loadAllProgress = async () => {
-      try {
-        let progressData = {};
-        let totalCompleted = 0;
-        let totalWrong = 0;
-        let totalSkipped = 0;
-        let totalPuzzles = 0;
-        let totalNotAttempted = 0;
+  // Function to load all progress data
+  const loadAllProgress = async () => {
+    try {
+      setLoading(true);
+      let progressData = {};
+      let totalCompleted = 0;
+      let totalWrong = 0;
+      let totalSkipped = 0;
+      let totalPuzzles = 0;
+      let totalNotAttempted = 0;
 
-        // Load data for each alphabet
-        for (const alphabet of alphabets) {
-          const puzzleStatusKey = `${alphabet.toLowerCase()}PuzzleStatus`;
-          const storedStatus = await AsyncStorage.getItem(puzzleStatusKey);
+      // Load data for each alphabet
+      for (const alphabet of alphabets) {
+        const puzzleStatusKey = `${alphabet.toLowerCase()}PuzzleStatus`;
+        const storedStatus = await AsyncStorage.getItem(puzzleStatusKey);
+        
+        // Default puzzle count per alphabet category
+        const puzzlesPerAlphabet = 5;
+        totalPuzzles += puzzlesPerAlphabet;
+        
+        if (storedStatus) {
+          const parsedStatus = JSON.parse(storedStatus);
           
-          // Default puzzle count per alphabet category (can be adjusted based on your actual data)
-          const puzzlesPerAlphabet = 5;
-          totalPuzzles += puzzlesPerAlphabet;
+          // Count statuses correctly
+          const completed = Object.values(parsedStatus).filter(status => status === 'completed').length;
+          const wrong = Object.values(parsedStatus).filter(status => status === 'wrong').length;
+          const skipped = Object.values(parsedStatus).filter(status => status === 'skipped').length;
+          const notAttempted = puzzlesPerAlphabet - completed - wrong - skipped;
           
-          if (storedStatus) {
-            const parsedStatus = JSON.parse(storedStatus);
+          // Update total counts
+          totalCompleted += completed;
+          totalWrong += wrong;
+          totalSkipped += skipped;
+          totalNotAttempted += notAttempted;
+          
+          // Calculate completion percentage - only count actually completed puzzles
+          const completionPercentage = Math.round((completed / puzzlesPerAlphabet) * 100);
+          
+          // Add to progressData with all status counts
+          progressData[alphabet] = {
+            completed,
+            wrong,
+            skipped,
+            notAttempted,
+            completionPercentage,
+            totalPuzzles: puzzlesPerAlphabet,
+            puzzleData: parsedStatus // Store the actual puzzle data
+          };
+        } else {
+          // No data found for this alphabet
+          totalNotAttempted += puzzlesPerAlphabet;
+          
+          // For 'A', use default values if not stored (to match the APuzzleProgressScreen)
+          if (alphabet === 'A') {
+            const defaultAStatus = {
+              1: 'completed',
+              2: 'completed',
+              3: 'wrong',
+              4: 'skipped',
+              5: 'completed'
+            };
             
-            // Count statuses
-            const completed = Object.values(parsedStatus).filter(status => status === 'completed').length;
-            const wrong = Object.values(parsedStatus).filter(status => status === 'wrong').length;
-            const skipped = Object.values(parsedStatus).filter(status => status === 'skipped').length;
+            // Update counts based on default A status
+            const completed = Object.values(defaultAStatus).filter(status => status === 'completed').length;
+            const wrong = Object.values(defaultAStatus).filter(status => status === 'wrong').length;
+            const skipped = Object.values(defaultAStatus).filter(status => status === 'skipped').length;
             const notAttempted = puzzlesPerAlphabet - completed - wrong - skipped;
             
             // Update total counts
             totalCompleted += completed;
             totalWrong += wrong;
             totalSkipped += skipped;
-            totalNotAttempted += notAttempted;
+            totalNotAttempted -= puzzlesPerAlphabet; // Subtract the previously added notAttempted
+            totalNotAttempted += notAttempted; // Add the correct value
             
             // Calculate completion percentage
             const completionPercentage = Math.round((completed / puzzlesPerAlphabet) * 100);
             
-            // Add to progressData
+            // Store the default data for A
             progressData[alphabet] = {
               completed,
               wrong,
               skipped,
               notAttempted,
               completionPercentage,
-              totalPuzzles: puzzlesPerAlphabet
+              totalPuzzles: puzzlesPerAlphabet,
+              puzzleData: defaultAStatus
             };
-          } else {
-            // No data found for this alphabet
-            totalNotAttempted += puzzlesPerAlphabet;
             
+            // Save default A status to AsyncStorage
+            await AsyncStorage.setItem('aPuzzleStatus', JSON.stringify(defaultAStatus));
+          } else {
             progressData[alphabet] = {
               completed: 0,
               wrong: 0,
               skipped: 0,
               notAttempted: puzzlesPerAlphabet,
               completionPercentage: 0,
-              totalPuzzles: puzzlesPerAlphabet
+              totalPuzzles: puzzlesPerAlphabet,
+              puzzleData: {}
             };
           }
         }
-        
-        // Set overall stats
-        setOverallStats({
-          completed: totalCompleted,
-          wrong: totalWrong,
-          skipped: totalSkipped,
-          notAttempted: totalNotAttempted,
-          totalPuzzles
-        });
-        
-        // Set alphabet progress
-        setAlphabetProgress(progressData);
-        setLoading(false);
-      } catch (error) {
-        console.error('Failed to load overall progress:', error);
-        setLoading(false);
       }
-    };
-    
+      
+      // Set overall stats with correct counts
+      setOverallStats({
+        completed: totalCompleted,
+        wrong: totalWrong,
+        skipped: totalSkipped,
+        notAttempted: totalNotAttempted,
+        totalPuzzles
+      });
+      
+      // Set alphabet progress
+      setAlphabetProgress(progressData);
+      setLoading(false);
+      
+      console.log("Progress data loaded successfully!");
+    } catch (error) {
+      console.error('Failed to load overall progress:', error);
+      setLoading(false);
+    }
+  };
+
+  // Load data when component mounts
+  useEffect(() => {
     loadAllProgress();
   }, []);
+  
+  // Reload data whenever the screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("OverallProgressScreen is focused - reloading progress data");
+      loadAllProgress();
+      return () => {
+        // Cleanup function when screen is unfocused
+        console.log("OverallProgressScreen is unfocused");
+      };
+    }, [])
+  );
 
-  // Calculate overall completion percentage
+  // Calculate overall completion percentage - only count actually completed puzzles
   const overallCompletionPercentage = Math.round(
     (overallStats.completed / overallStats.totalPuzzles) * 100
   ) || 0;
@@ -133,15 +194,78 @@ export default function OverallProgressScreen({ navigation }) {
   const renderCategoryCard = (alphabet) => {
     const progress = alphabetProgress[alphabet] || { 
       completionPercentage: 0, 
-      completed: 0, 
-      totalPuzzles: 5 
+      completed: 0,
+      wrong: 0,
+      skipped: 0,
+      notAttempted: 5,
+      totalPuzzles: 5,
+      puzzleData: {}
+    };
+    
+    // Get puzzle data for this alphabet
+    const getPuzzleDataForAlphabet = (letter) => {
+      switch(letter) {
+        case 'A':
+          return [
+            { id: 1, name: 'APPLE', image: require('../../../assets/items/apple.png') },
+            { id: 2, name: 'AIRPLANE', image: require('../../../assets/items/airplane.png') },
+            { id: 3, name: 'ARROW', image: require('../../../assets/items/arrow.png') },
+            { id: 4, name: 'AMBULANCE', image: require('../../../assets/items/ambulance.png') },
+            { id: 5, name: 'ANT', image: require('../../../assets/items/ant.png') },
+          ];
+        default:
+          return [];
+      }
+    };
+    
+    // Get the status indicator icon for a specific puzzle
+    const getPuzzleStatusIndicator = (puzzleId) => {
+      if (!progress.puzzleData || !progress.puzzleData[puzzleId]) {
+        return null;
+      }
+      
+      const status = progress.puzzleData[puzzleId];
+      
+      if (status === 'completed') {
+        return <FontAwesome5 name="check-circle" size={10} color="#00C853" style={styles.puzzleStatusDot} />;
+      } else if (status === 'wrong') {
+        return <FontAwesome5 name="times-circle" size={10} color="#FF5252" style={styles.puzzleStatusDot} />;
+      } else if (status === 'skipped') {
+        return <FontAwesome5 name="forward" size={10} color="#FF9800" style={styles.puzzleStatusDot} />;
+      }
+      return <View style={[styles.puzzleStatusDot, {backgroundColor: '#CCCCCC'}]} />;
+    };
+    
+    // Render detailed status dots for letter A
+    const renderDetailedStatus = () => {
+      if (alphabet === 'A') {
+        return (
+          <View style={styles.detailedStatusContainer}>
+            {[1, 2, 3, 4, 5].map(id => (
+              <View key={id} style={styles.puzzleStatusIndicator}>
+                {getPuzzleStatusIndicator(id)}
+              </View>
+            ))}
+          </View>
+        );
+      }
+      return null;
+    };
+    
+    // Navigate to either category progress screen or directly to a specific puzzle
+    const handleNavigation = () => {
+      // For all letters, navigate to their respective progress screens
+      navigation.navigate(`${alphabet}PuzzleProgressScreen`);
+
+      // Add analytics logging to track user navigation
+      console.log(`User navigated to ${alphabet} Puzzle Progress Screen`);
     };
     
     return (
       <TouchableOpacity 
         key={alphabet}
         style={styles.categoryCard}
-        onPress={() => navigation.navigate(`${alphabet}PuzzleProgressScreen`)}
+        onPress={handleNavigation}
       >
         <View 
           style={[
@@ -160,6 +284,8 @@ export default function OverallProgressScreen({ navigation }) {
           
           <Text style={styles.categorySubtitle}>
             {progress.completed} of {progress.totalPuzzles} puzzles completed
+            {progress.wrong > 0 ? ` (${progress.wrong} wrong)` : ''}
+            {progress.skipped > 0 ? ` (${progress.skipped} skipped)` : ''}
           </Text>
           
           <View style={styles.categoryProgressBarContainer}>
@@ -178,6 +304,8 @@ export default function OverallProgressScreen({ navigation }) {
               {progress.completionPercentage}%
             </Text>
           </View>
+          
+          {renderDetailedStatus()}
         </View>
         
         <View style={styles.categoryArrow}>
@@ -597,5 +725,20 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginLeft: 5,
+  },
+  puzzleStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginHorizontal: 2,
+  },
+  detailedStatusContainer: {
+    flexDirection: 'row',
+    marginTop: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  puzzleStatusIndicator: {
+    marginHorizontal: 2,
   },
 });
